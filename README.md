@@ -57,6 +57,29 @@ personal account once. After that, `/switch` moves between the two.
 
 `bin/claude-ego` is the same CLI and works from a terminal.
 
+## Uninstall
+
+1. Optional: log out of the extra accounts so their Keychain logins are removed.
+   For each one: `/switch <alias>`, `/exit`, then `/logout` in the relaunched session.
+   Finish with `/switch` back to the account registered with `--existing`.
+2. Remove the `source ~/.claude-ego/shell.sh` line from `~/.zshrc` (or `~/.bashrc`)
+   and open a new terminal.
+3. Remove the plugin and marketplace:
+
+   ```sh
+   claude plugin uninstall ego@claude-ego
+   claude plugin marketplace remove claude-ego
+   ```
+
+4. Delete the account data:
+
+   ```sh
+   rm -rf ~/.claude-ego
+   ```
+
+   Profiles only hold symlinks into `~/.claude`, so your settings and conversation
+   history stay intact. Plain `claude` goes back to your normal `~/.claude` login.
+
 ## Caveats
 
 - If Claude Code rewrites a shared file with an atomic rename (for example
