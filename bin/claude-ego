@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+# claude-ego: manage multiple Claude Code logins via per-account CLAUDE_CONFIG_DIRs.
+#
+# Each alias maps to a config directory. The special directory "@default" means
+# "leave CLAUDE_CONFIG_DIR unset" (i.e. the stock ~/.claude login).
+#
+# State lives in $CLAUDE_EGO_HOME (default ~/.claude-ego):
+#   accounts.tsv      alias<TAB>config-dir
+#   current           alias the shell wrapper launches next
+#   profiles/<alias>/ config dirs created by `add`
+#   restart.<id>      flag telling the wrapper for session <id> to relaunch
+#   shell.sh          installed copy of the shell wrapper
+
+set -euo pipefail
+
+HOME_DIR="${CLAUDE_EGO_HOME:-$HOME/.claude-ego}"
+REGISTRY="$HOME_DIR/accounts.tsv"
+CURRENT="$HOME_DIR/current"
+BASE_DIR="$HOME/.claude"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Entries in ~/.claude shared (symlinked) into every profile, so settings,
+# plugins, skills and conversation history follow you across accounts.
+SHARED=(settings.json CLAUDE.md RTK.md keybindings.json agents commands skills hooks
+        plugins projects todos file-history history.jsonl)
+
+die() { echo "error: $*" >&2; exit 1; }
+
+ensure_home() {
+  mkdir -p "$HOME_DIR/profiles"
+  touch "$REGISTRY"
+}
+
+valid_alias() {
+  [[ "$1" =~ ^[a-z0-9][a-z0-9_-]{0,31}$ ]] || die "alias must match [a-z0-9][a-z0-9_-]* (got '$1')"
+}
+
+lookup() {
+  awk -F'\t' -v a="$1" '$1 == a { print $2; found=1 } END { exit !found }' "$REGISTRY"
+}
+
+current_alias() {
+  [[ -f "$CURRENT" ]] && cat "$CURRENT" || true
+}
+
+# Alias of the running session, inferred from its CLAUDE_CONFIG_DIR.
+active_alias() {
+  local dir="${CLAUDE_CONFIG_DIR:-@default}"
+  awk -F'\t' -v d="$dir" '$2 == d { print $1; exit }' "$REGISTRY"
+}
+
+link_shared() {
+  local dir="$1" item
+  for item in "${SHARED[@]}"; do
+    [[ -e "$BASE_DIR/$item" && ! -e "$dir/$item" ]] && ln -s "$BASE_DIR/$item" "$dir/$item"
+  done
+  # Seed app state (onboarding, trusted projects, MCP servers) minus the account identity.
+  if [[ -f "$HOME/.claude.json" && ! -f "$dir/.claude.json" ]] && command -v jq >/dev/null; then
+    jq 'del(.oauthAccount)' "$HOME/.claude.json" > "$dir/.claude.json"
+    chmod 600 "$dir/.claude.json"
+  fi
+}
+
+cmd_add() {
+  local alias="${1:-}" dir
+  [[ -n "$alias" ]] || die "usage: add <alias> [--existing]"
+  valid_alias "$alias"
+  ensure_home
+  lookup "$alias" >/dev/null && die "alias '$alias' already exists"
+  if [[ "${2:-}" == "--existing" ]]; then
+    awk -F'\t' '$2 == "@default" { exit 1 }' "$REGISTRY" \
+      || die "the existing ~/.claude login is already registered as '$(awk -F'\t' '$2=="@default"{print $1}' "$REGISTRY")'"
+    dir="@default"
+  else
+    dir="$HOME_DIR/profiles/$alias"
+    mkdir -p "$dir"
+    link_shared "$dir"
+  fi
+  printf '%s\t%s\n' "$alias" "$dir" >> "$REGISTRY"
+  echo "Added '$alias' -> $dir"
+  [[ "$dir" == "@default" ]] || echo "Not logged in yet: /switch $alias, /exit, then log in when Claude Code starts."
+}
+
+cmd_rm() {
+  local alias="${1:-}" dir
+  [[ -n "$alias" ]] || die "usage: rm <alias>"
+  ensure_home
+  dir="$(lookup "$alias")" || die "no account '$alias'"
+  awk -F'\t' -v a="$alias" '$1 != a' "$REGISTRY" > "$REGISTRY.tmp" && mv "$REGISTRY.tmp" "$REGISTRY"
+  [[ "$(current_alias)" == "$alias" ]] && rm -f "$CURRENT"
+  echo "Removed '$alias'. Config dir left in place: $dir"
+  [[ "$dir" == "@default" ]] || echo "(Its Keychain login remains; run /logout in that account first if you want it gone.)"
+}
+
+cmd_list() {
+  ensure_home
+  local cur active
+  cur="$(current_alias)"
+  active="$(active_alias)"
+  [[ -s "$REGISTRY" ]] || { echo "No accounts yet. Add one: /accounts add <alias> [--existing]"; return; }
+  while IFS=$'\t' read -r a d; do
+    local mark="  "
+    [[ "$a" == "$active" ]] && mark="* "
+    printf '%s%-14s %s%s\n' "$mark" "$a" "$d" "$([[ "$a" == "$cur" && "$a" != "$active" ]] && echo '  (next launch)')"
+  done < "$REGISTRY"
+  echo "(* = this session)"
+}
+
+cmd_use() {
+  local alias="${1:-}" dir
+  [[ -n "$alias" ]] || die "usage: use <alias>"
+  ensure_home
+  dir="$(lookup "$alias")" || die "no account '$alias'. Known: $(cut -f1 "$REGISTRY" | paste -sd' ' -)"
+  echo "$alias" > "$CURRENT"
+  if [[ "$(active_alias)" == "$alias" ]]; then
+    echo "Already on '$alias'."
+    return
+  fi
+  if [[ -n "${CLAUDE_EGO_SESSION:-}" ]]; then
+    touch "$HOME_DIR/restart.$CLAUDE_EGO_SESSION"
+    echo "Switched to '$alias'. Type /exit — Claude Code will relaunch as '$alias' and continue this conversation."
+  else
+    echo "Switched to '$alias' for the next launch."
+    echo "Shell wrapper not active, so relaunch manually:"
+    if [[ "$dir" == "@default" ]]; then
+      echo "  /exit, then: env -u CLAUDE_CONFIG_DIR claude --continue"
+    else
+      echo "  /exit, then: CLAUDE_CONFIG_DIR='$dir' claude --continue"
+    fi
+    echo "Or run '/accounts setup' for automatic relaunch."
+  fi
+}
+
+# Prints the config dir for the current alias ("" = leave unset). Used by the wrapper.
+cmd_dir() {
+  ensure_home
+  local alias dir
+  alias="$(current_alias)"
+  [[ -n "$alias" ]] || return 0
+  dir="$(lookup "$alias")" || return 0
+  [[ "$dir" == "@default" ]] || echo "$dir"
+}
+
+cmd_setup() {
+  ensure_home
+  cp "$SCRIPT_DIR/../shell/claude-ego.sh" "$HOME_DIR/shell.sh"
+  local rc="$HOME/.zshrc" line="[ -f \"$HOME_DIR/shell.sh\" ] && source \"$HOME_DIR/shell.sh\""
+  [[ "${SHELL:-}" == */bash ]] && rc="$HOME/.bashrc"
+  echo "Installed shell wrapper: $HOME_DIR/shell.sh"
+  if grep -qF "$HOME_DIR/shell.sh" "$rc" 2>/dev/null; then
+    echo "$rc already sources it."
+  else
+    echo "Add this line to $rc, then open a new terminal:"
+    echo "  $line"
+  fi
+}
+
+case "${1:-list}" in
+  add)   shift; cmd_add "$@" ;;
+  rm|remove) shift; cmd_rm "$@" ;;
+  list|ls) cmd_list ;;
+  use)   shift; cmd_use "$@" ;;
+  dir)   cmd_dir ;;
+  setup) cmd_setup ;;
+  *) cat <<EOF
+usage: claude-ego <command>
+  add <alias> [--existing]  register an account (--existing = your current ~/.claude login)
+  rm <alias>                unregister an account
+  list                      show accounts
+  use <alias>               switch to an account
+  setup                     install the shell wrapper for auto-relaunch
+EOF
+  ;;
+esac

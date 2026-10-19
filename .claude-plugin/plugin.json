@@ -1,0 +1,8 @@
+{
+  "name": "ego",
+  "version": "0.1.0",
+  "description": "Switch between multiple authenticated Claude Code accounts by alias (/switch peter).",
+  "author": {
+    "name": "Peter Myers"
+  }
+}

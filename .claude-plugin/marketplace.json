@@ -1,0 +1,14 @@
+{
+  "name": "claude-ego",
+  "owner": {
+    "name": "Peter Myers"
+  },
+  "plugins": [
+    {
+      "name": "ego",
+      "source": "./",
+      "description": "Switch between multiple authenticated Claude Code accounts by alias."
+    }
+  ],
+  "description": "Switch between multiple authenticated Claude Code accounts by alias."
+}
