@@ -1,6 +1,7 @@
 # claude-ego shell wrapper (zsh/bash).
 # Launches `claude` under the account chosen with /switch, and relaunches it with
-# --continue when /switch was used in the session that just exited.
+# --continue when /switch was used in the session that just exited (the plugin's
+# Stop hook ends that session; the PID in CLAUDE_EGO_SESSION lets it find Claude Code).
 
 claude() {
   local home="${CLAUDE_EGO_HOME:-$HOME/.claude-ego}"

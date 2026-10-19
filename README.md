@@ -16,8 +16,8 @@ own login and Keychain entry. This plugin manages those directories for you:
 - New profiles symlink your settings, CLAUDE.md, plugins, skills, hooks, agents and
   `projects/` (conversation history) from `~/.claude`, so only the login differs.
 - A running process can't change its own config dir, so switching needs a restart.
-  The optional shell wrapper does that for you: `/switch personal`, `/exit`, and
-  Claude Code relaunches as `personal` with `--continue` (same conversation).
+  The optional shell wrapper does that for you: `/switch personal` and Claude Code
+  exits and relaunches as `personal` with `--continue` (same conversation).
 
 ## Install
 
@@ -42,14 +42,14 @@ Register your accounts:
 /accounts add personal          # new, not-yet-logged-in account
 ```
 
-Then run `/switch personal` and `/exit`. Claude Code relaunches, and you log in to the
+Then run `/switch personal`. Claude Code relaunches, and you log in to the
 personal account once. After that, `/switch` moves between the two.
 
 ## Commands
 
 | Command | Does |
 |---|---|
-| `/switch <alias>` | Pick an account; `/exit` to relaunch into it |
+| `/switch <alias>` | Switch account; Claude Code relaunches into it |
 | `/accounts list` | List accounts (`*` = this session); plain `/accounts` does the same |
 | `/accounts add <alias> [--existing]` | Register an account |
 | `/accounts rm <alias>` | Unregister (leaves dir and Keychain login) |
@@ -60,7 +60,7 @@ personal account once. After that, `/switch` moves between the two.
 ## Uninstall
 
 1. Optional: log out of the extra accounts so their Keychain logins are removed.
-   For each one: `/switch <alias>`, `/exit`, then `/logout` in the relaunched session.
+   For each one: `/switch <alias>`, then `/logout` in the relaunched session.
    Finish with `/switch` back to the account registered with `--existing`.
 2. Remove the `source ~/.claude-ego/shell.sh` line from `~/.zshrc` (or `~/.bashrc`)
    and open a new terminal.

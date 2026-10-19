@@ -8,7 +8,8 @@
 #   accounts.tsv      alias<TAB>config-dir
 #   current           alias the shell wrapper launches next
 #   profiles/<alias>/ config dirs created by `add`
-#   restart.<id>      flag telling the wrapper for session <id> to relaunch
+#   restart.<id>      flag telling the wrapper for session <id> to relaunch; holds the
+#                     Claude Code PID the Stop hook should end (empty = user exits)
 #   shell.sh          installed copy of the shell wrapper
 
 set -euo pipefail
@@ -37,6 +38,19 @@ valid_alias() {
 
 lookup() {
   awk -F'\t' -v a="$1" '$1 == a { print $2; found=1 } END { exit !found }' "$REGISTRY"
+}
+
+# PID of the Claude Code process running this session: the ancestor whose parent is
+# the wrapper's shell (the PID before the "-" in CLAUDE_EGO_SESSION).
+claude_pid() {
+  local shell="${CLAUDE_EGO_SESSION%%-*}" pid=$$ ppid
+  [[ "$shell" =~ ^[0-9]+$ ]] || return 1
+  while [[ "$pid" -gt 1 ]]; do
+    ppid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')" || return 1
+    [[ "$ppid" == "$shell" ]] && { echo "$pid"; return 0; }
+    pid="$ppid"
+  done
+  return 1
 }
 
 current_alias() {
@@ -78,7 +92,7 @@ cmd_add() {
   fi
   printf '%s\t%s\n' "$alias" "$dir" >> "$REGISTRY"
   echo "Added '$alias' -> $dir"
-  [[ "$dir" == "@default" ]] || echo "Not logged in yet: /switch $alias, /exit, then log in when Claude Code starts."
+  [[ "$dir" == "@default" ]] || echo "Not logged in yet: /switch $alias, then log in when Claude Code relaunches."
 }
 
 cmd_rm() {
@@ -117,8 +131,14 @@ cmd_use() {
     return
   fi
   if [[ -n "${CLAUDE_EGO_SESSION:-}" ]]; then
-    touch "$HOME_DIR/restart.$CLAUDE_EGO_SESSION"
-    echo "Switched to '$alias'. Type /exit — Claude Code will relaunch as '$alias' and continue this conversation."
+    local pid
+    if pid="$(claude_pid)"; then
+      echo "$pid" > "$HOME_DIR/restart.$CLAUDE_EGO_SESSION"
+      echo "Switched to '$alias'. Relaunching Claude Code as '$alias' and continuing this conversation..."
+    else
+      : > "$HOME_DIR/restart.$CLAUDE_EGO_SESSION"
+      echo "Switched to '$alias'. Type /exit — Claude Code will relaunch as '$alias' and continue this conversation."
+    fi
   else
     echo "Switched to '$alias' for the next launch."
     echo "Shell wrapper not active, so relaunch manually:"
@@ -141,6 +161,19 @@ cmd_dir() {
   [[ "$dir" == "@default" ]] || echo "$dir"
 }
 
+# Stop hook: once the /switch reply is done, end Claude Code so the wrapper relaunches it.
+cmd_on_stop() {
+  [[ -n "${CLAUDE_EGO_SESSION:-}" ]] || return 0
+  local flag="$HOME_DIR/restart.$CLAUDE_EGO_SESSION" pid
+  [[ -s "$flag" ]] || return 0
+  pid="$(cat "$flag")"
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 0
+  # Only signal the process if it is still the wrapper's child (guards against PID reuse).
+  [[ "$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')" == "${CLAUDE_EGO_SESSION%%-*}" ]] || return 0
+  : > "$flag"
+  ( sleep 0.5; kill -TERM "$pid" ) </dev/null >/dev/null 2>&1 &
+}
+
 cmd_setup() {
   ensure_home
   cp "$SCRIPT_DIR/../shell/claude-ego.sh" "$HOME_DIR/shell.sh"
@@ -161,6 +194,7 @@ case "${1:-list}" in
   list|ls) cmd_list ;;
   use)   shift; cmd_use "$@" ;;
   dir)   cmd_dir ;;
+  on-stop) cmd_on_stop ;;
   setup) cmd_setup ;;
   *) cat <<EOF
 usage: claude-ego <command>
