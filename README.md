@@ -57,6 +57,17 @@ personal account once. After that, `/switch` moves between the two.
 
 `bin/claude-ego` is the same CLI and works from a terminal.
 
+## Update
+
+```sh
+claude plugin marketplace update claude-ego
+claude plugin update ego@claude-ego
+```
+
+Then restart Claude Code (`/exit` and run `claude` again) to load the new version.
+Your installed shell wrapper keeps working; rerun `/accounts setup` only if a release
+notes a wrapper change.
+
 ## Uninstall
 
 1. Optional: log out of the extra accounts so their Keychain logins are removed.
