@@ -22,7 +22,7 @@ own login and Keychain entry. This plugin manages those directories for you:
 ## Install
 
 ```sh
-claude plugin marketplace add ~/Development/claude-ego
+claude plugin marketplace add petermyers/claude-ego
 claude plugin install ego@claude-ego
 ```
 
