@@ -26,15 +26,22 @@ claude plugin marketplace add petermyers/claude-ego
 claude plugin install ego@claude-ego
 ```
 
-Then in Claude Code:
+Then in Claude Code, install the shell wrapper:
 
 ```
-/accounts add work --existing   # register the login you're using now
+/accounts setup
+```
+
+Add the `source` line it prints to `~/.zshrc`, open a new terminal, and start
+`claude` again. `/switch` can only relaunch sessions started through the wrapper.
+
+Register your accounts:
+
+```
+/accounts add work --existing   # the login you're using now
 /accounts add personal          # new, not-yet-logged-in account
-/accounts setup                 # install the auto-relaunch shell wrapper
 ```
 
-Add the `source` line that `setup` prints to `~/.zshrc` and open a new terminal.
 Then run `/switch personal` and `/exit`. Claude Code relaunches, and you log in to the
 personal account once. After that, `/switch` moves between the two.
 
