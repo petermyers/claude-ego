@@ -1,6 +1,6 @@
 ---
 name: switch
-description: Switch the Claude Code account (e.g. /switch peter, /switch converge).
+description: Switch the Claude Code account (e.g. /switch personal, /switch work).
 argument-hint: <alias>
 disable-model-invocation: true
 allowed-tools: Bash(${CLAUDE_SKILL_DIR}/../../bin/claude-ego *)

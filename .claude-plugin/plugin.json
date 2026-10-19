@@ -1,7 +1,7 @@
 {
   "name": "ego",
   "version": "0.1.0",
-  "description": "Switch between multiple authenticated Claude Code accounts by alias (/switch peter).",
+  "description": "Switch between multiple authenticated Claude Code accounts by alias (/switch personal).",
   "author": {
     "name": "Peter Myers"
   }

@@ -3,8 +3,8 @@
 Switch between authenticated Claude Code accounts by alias:
 
 ```
-/switch peter      # personal
-/switch converge   # work
+/switch personal
+/switch work
 ```
 
 Claude Code has no built-in account switcher. Its documented way to run several
@@ -16,8 +16,8 @@ own login and Keychain entry. This plugin manages those directories for you:
 - New profiles symlink your settings, CLAUDE.md, plugins, skills, hooks, agents and
   `projects/` (conversation history) from `~/.claude`, so only the login differs.
 - A running process can't change its own config dir, so switching needs a restart.
-  The optional shell wrapper does that for you: `/switch peter`, `/exit`, and
-  Claude Code relaunches as `peter` with `--continue` (same conversation).
+  The optional shell wrapper does that for you: `/switch personal`, `/exit`, and
+  Claude Code relaunches as `personal` with `--continue` (same conversation).
 
 ## Install
 
@@ -29,13 +29,13 @@ claude plugin install ego@claude-ego
 Then in Claude Code:
 
 ```
-/accounts add converge --existing   # register the login you're using now
-/accounts add peter                 # new, not-yet-logged-in account
-/accounts setup                     # install the auto-relaunch shell wrapper
+/accounts add work --existing   # register the login you're using now
+/accounts add personal          # new, not-yet-logged-in account
+/accounts setup                 # install the auto-relaunch shell wrapper
 ```
 
 Add the `source` line that `setup` prints to `~/.zshrc` and open a new terminal.
-Then run `/switch peter` and `/exit`. Claude Code relaunches, and you log in to the
+Then run `/switch personal` and `/exit`. Claude Code relaunches, and you log in to the
 personal account once. After that, `/switch` moves between the two.
 
 ## Commands
