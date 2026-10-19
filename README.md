@@ -50,7 +50,7 @@ personal account once. After that, `/switch` moves between the two.
 | Command | Does |
 |---|---|
 | `/switch <alias>` | Pick an account; `/exit` to relaunch into it |
-| `/accounts` | List accounts (`*` = this session) |
+| `/accounts list` | List accounts (`*` = this session); plain `/accounts` does the same |
 | `/accounts add <alias> [--existing]` | Register an account |
 | `/accounts rm <alias>` | Unregister (leaves dir and Keychain login) |
 | `/accounts setup` | Install the shell wrapper |
